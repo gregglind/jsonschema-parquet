@@ -1,0 +1,166 @@
+{
+  "common": {
+    "$schema": "http://json-schema.org/draft-04/schema#",
+    "type": "object",
+    "title": "Shield Common Format Payload Schema.",
+    "description": "Common fields for all Shield-Study doc_types.",
+    "properties": {
+      "version": {
+        "type": "integer",
+        "title": "Version schema.  Will be 3",
+        "enum": [
+          3
+        ]
+      },
+      "study_name": {
+        "type": "string",
+        "minLength": 1,
+        "title": "Study_name schema.",
+        "description": "Name of a particular study.  Often the addon_id."
+      },
+      "branch": {
+        "type": "string",
+        "minLength": 1,
+        "title": "Branch schema.",
+        "description": "Which branch (variation) of the study the user has."
+      },
+      "addon_version": {
+        "type": "string",
+        "minLength": 1,
+        "title": "Addon_version schema.",
+        "description": "Semantic version of the addon."
+      },
+      "shield_version": {
+        "type": "string",
+        "minLength": 1,
+        "title": "Shield_version schema.",
+        "description": "Which version of the shield-studies-addon-utils."
+      },
+      "data": {
+        "type": "object",
+        "title": "Data schemas.",
+        "description": "Data must conform to one of the 3 validators below.",
+        "properties": {}
+      }
+    },
+    "required": [
+      "version",
+      "study_name",
+      "branch",
+      "addon_version",
+      "shield_version",
+      "data"
+    ]
+  },
+  "shield-study-data": {
+    "$schema": "http://json-schema.org/draft-04/schema#",
+    "type": "object",
+    "title": "Shield-Study 'data' property.",
+    "description": "Shield Study State",
+    "properties": {
+      "study_state": {
+        "type": "string",
+        "title": "Study_state schema.",
+        "description": "message about the most recent state of the study.",
+        "enum": [
+          "enter",
+          "exit",
+          "installed",
+          "ineligible",
+          "expired",
+          "user-disable",
+          "ended-positive",
+          "ended-neutral",
+          "ended-negative",
+          "active"
+        ]
+      },
+      "study_state_fullname": {
+        "type": "string",
+        "title": "Study_state_fullname schema.",
+        "description": "Second part of name of state, if any.  Study-specific for study-defined endings."
+      },
+      "context": {
+        "type": "object",
+        "title": "Details schema.",
+        "description": "An explanation about the purpose of this instance.",
+        "properties": {}
+      }
+    },
+    "required": [
+      "study_state",
+      "study_state_fullname",
+      "details"
+    ]
+  },
+  "shield-study-addon-data": {
+    "$schema": "http://json-schema.org/draft-04/schema#",
+    "type": "object",
+    "title": "Shield-Study-Addon 'data' field.",
+    "description": "Shield-Study-addon Addon-specific data.  All values will be sent to parquet as strings.  Re:dash handles String:String natively.  Complex values will be stringified.",
+    "properties": {
+    }
+  },
+  "shield-study-error": {
+    "$schema": "http://json-schema.org/draft-04/schema#",
+    "type": "object",
+    "title": "Shield-Study-Error 'data' field",
+    "description": "Notify, group, count some kinds of errors from shield studies.",
+    "properties": {
+      "message": {
+        "type": "string",
+        "minLength": 1,
+        "title": "Message schema.",
+        "description": "String of an error message."
+      },
+      "context": {
+        "type": "object",
+        "title": "Context schema.",
+        "description": "Additional Groupable Fields.",
+        "properties": {}
+      },
+      "error": {
+        "type": "object",
+        "title": "Error schema.",
+        "description": "An explanation about the purpose of this instance.",
+        "properties": {}
+      },
+      "error_source": {
+        "type": "string",
+        "minLength": 1,
+        "title": "Error_source schema.",
+        "description": "An explanation about the purpose of this instance.",
+        "enum": [
+          null,
+          "addon",
+          "shield",
+          "unknown",
+          "other"
+        ]
+      },
+      "error_id": {
+        "type": "string",
+        "minLength": 1,
+        "title": "error_id schema.",
+        "description": "Short name for an error, for easy counting."
+      },
+      "severity": {
+        "type": "string",
+        "minLength": 1,
+        "title": "Severity schema.",
+        "description": "An explanation about the purpose of this instance.",
+        "enum": [
+          null,
+          "info",
+          "warn",
+          "fatal",
+          "impossible"
+        ]
+      }
+    },
+    "required": [
+      "error_source",
+      "error_name"
+    ]
+  }
+}
