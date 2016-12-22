@@ -162,5 +162,29 @@
       "error_source",
       "error_name"
     ]
+  },
+  "simple": {
+    "$schema": "http://json-schema.org/draft-04/schema#",
+    "type": "object",
+    "properties": {
+      "a": {
+        "type": "integer"
+      },
+      "b": {
+        "type": "object",
+        "properties": {
+          "c": {
+            "type": "integer"
+          }
+        },
+        "required": [
+          "c"
+        ]
+      }
+    },
+    "required": [
+      "a",
+      "b"
+    ]
   }
 }

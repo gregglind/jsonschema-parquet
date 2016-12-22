@@ -30,6 +30,53 @@ from spark
 >>> sch
 StructType(List(StructField(a,LongType,true),StructField(b,StructType(List(StructField(c,LongType,true))),true)))
 
+
+
+    message testpilot {
+        required binary id;
+        optional binary clientId;
+        required group metadata {
+            required int64  Timestamp;
+            required binary submissionDate;
+            optional binary Date;
+            optional binary normalizedChannel;
+            optional binary geoCountry;
+            optional binary geoCity;
+        }
+        optional group application {
+            optional binary name;
+        }
+        optional group environment {
+            optional group system {
+                optional group os {
+                    optional binary name;
+                    optional binary version;
+                }
+            }
+        }
+        optional group payload {
+            optional binary version;
+            optional binary test;
+            repeated group events {
+                optional int64  timestamp;
+                optional binary event;
+                optional binary object;
+            }
+        }
+    }
+
+
+from pyspark.sql.types import *
+>>> s2 = MapType(StringType(), StringType())
+>>> print json.dumps(s2.jsonValue(),indent=2)
+{
+  "keyType": "string",
+  "type": "map",
+  "valueType": "string",
+  "valueContainsNull": true
+}
+
+
 */
 
 
@@ -38,7 +85,7 @@ class Result {
     this.json = result;
   }
   toJSON () {
-    return JSON.stringify(this.json);
+    return this.json;
   }
   toString () {
     throw new Error('to String is not yet complete');
@@ -47,15 +94,16 @@ class Result {
 
 class Converter {
   _convert (section) {
-    switch (section(['type'])) {
+    console.log(section);
+    switch (section.type) {
       case "object":
         return this.fromObject(section)
         break;
       case "string":
-        return this.fromString(section);
+        return this.fromString(section, nullable);
         break
       case "integer":
-        return this.fromInteger(section);
+        return this.fromInteger(section, nullable);
         break;
       default:
         throw new Error("unimplemented typo, todo");
@@ -64,28 +112,68 @@ class Converter {
   }
   fromObject (section) {
     // struct or map maybe?  try struct first
-    let props = Object.keys(section(['properties']));
+    let props = Object.keys(section['properties']);
+    let additionalProperties
+    if (props.additional.props )
     if (props.length) {
       // Yes a struct
+      return this.toStruct(section);
+    } else {
+      // subtle
+      return this.toMap(section);
+    }
+  }
+
+  fromSimple (name, prop, nullable) {
+    return {
+      'metadata': {},
+      'type': prop.type,
+      'name': name,
+      'nullable': nullable
     }
   }
 
   fromString (section) {
-
+    return
   }
 
   fromInteger (section) {
 
   }
 
+  toStruct(section) {
+    let that = this;
+    let out = {type: 'struct'};
+    let props = Object.keys(section['properties']);
+
+    let required = section.required || [];
+    let additionalProperties = section.additionalProperties || {};
+    // https://spacetelescope.github.io/understanding-json-schema/reference/object.html
+    out.fields = props.map(function (f) {
+      let prop = section.properties[f];
+      let propType = prop.type;
+      switch (propType) {
+        case 'object':
+          console.log("RECURIVE OBJECTS AREN'T DONE");
+      }
+      return that.fromSimple(f, prop, section.required.includes(prop.name))
+    });
+    return out;
+
+  }
+  toStructField(section) {
+
+  }
+  toMap(thing) {
+
+  }
   convert (jsonschema) {
-    return new Result({'a': 1});
+    return new Result(this._convert(jsonschema));
   }
 }
 
 
 exports.Converter = Converter;
-let R = new Converter().convert(require("./examples.json").common).toJSON();
-console.log(R);
-
+let J = new Converter().convert(require("./examples.json").common).toJSON();
+console.log(JSON.stringify(J,null,2))
 
