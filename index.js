@@ -114,13 +114,28 @@ class Converter {
     // struct or map maybe?  try struct first
     let props = Object.keys(section['properties']);
     let additionalProperties
-    if (props.additional.props )
+    let additionalProperties = section.additionalProperties || {};
+    // https://spacetelescope.github.io/understanding-json-schema/reference/object.html
+
+    // break early and do simple maps
+    switch (additionalProperties.type) {
+      case 'string':
+      case 'integer':
+        return this.toMap("string", additionalProperties.type);
+
+      case null;
+        break;
+
+      default:
+        throw new Error('map, but on an unknown type:', additionalProperties.type)
+        break;
+    }
+
     if (props.length) {
       // Yes a struct
       return this.toStruct(section);
     } else {
-      // subtle
-      return this.toMap(section);
+      throw new Error("stuct, but no props");
     }
   }
 
@@ -138,7 +153,7 @@ class Converter {
   }
 
   fromInteger (section) {
-
+    return
   }
 
   toStruct(section) {
@@ -147,8 +162,6 @@ class Converter {
     let props = Object.keys(section['properties']);
 
     let required = section.required || [];
-    let additionalProperties = section.additionalProperties || {};
-    // https://spacetelescope.github.io/understanding-json-schema/reference/object.html
     out.fields = props.map(function (f) {
       let prop = section.properties[f];
       let propType = prop.type;
@@ -164,16 +177,23 @@ class Converter {
   toStructField(section) {
 
   }
-  toMap(thing) {
-
+  toMap(keytype, valuetype) {
+    /* TODO: this isn't fully finished.*/
+    return {
+      "keyType": keytype,
+      "type": "map",
+      "valueType": valuetype,
+      "valueContainsNull": true
+    }
   }
   convert (jsonschema) {
     return new Result(this._convert(jsonschema));
   }
 }
 
-
 exports.Converter = Converter;
-let J = new Converter().convert(require("./examples.json").common).toJSON();
-console.log(JSON.stringify(J,null,2))
+let J = new Converter();
+let x = require('./examples.json');
+console.log(JSON.stringify(J.convert(x.common).toJSON(),null,2))
+console.log(JSON.stringify(J.convert(x.aMap).toJSON(),null,2))
 
