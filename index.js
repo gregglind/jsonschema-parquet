@@ -76,6 +76,9 @@ from pyspark.sql.types import *
   "valueContainsNull": true
 }
 
+>>> StructType().jsonValue()
+{'fields': [], 'type': 'struct'}
+
 
 */
 
@@ -94,7 +97,7 @@ class Result {
 
 class Converter {
   _convert (section) {
-    console.log(section);
+    //console.log(section);
     switch (section.type) {
       case "object":
         return this.fromObject(section)
@@ -106,14 +109,13 @@ class Converter {
         return this.fromInteger(section, nullable);
         break;
       default:
-        throw new Error("unimplemented typo, todo");
+        throw new Error("unimplemented type, todo");
         break
     }
   }
-  fromObject (section) {
+  fromObject (section, name) {
     // struct or map maybe?  try struct first
     let props = Object.keys(section['properties']);
-    let additionalProperties
     let additionalProperties = section.additionalProperties || {};
     // https://spacetelescope.github.io/understanding-json-schema/reference/object.html
 
@@ -121,22 +123,18 @@ class Converter {
     switch (additionalProperties.type) {
       case 'string':
       case 'integer':
-        return this.toMap("string", additionalProperties.type);
+        return this.toMap("string", additionalProperties.type, name);
 
-      case null;
+      case null:
+      case undefined:
         break;
 
       default:
-        throw new Error('map, but on an unknown type:', additionalProperties.type)
+        throw new Error('map, but on an unknown type: ' + additionalProperties.type)
         break;
     }
 
-    if (props.length) {
-      // Yes a struct
-      return this.toStruct(section);
-    } else {
-      throw new Error("stuct, but no props");
-    }
+    return this.toStruct(section, name);
   }
 
   fromSimple (name, prop, nullable) {
@@ -156,10 +154,13 @@ class Converter {
     return
   }
 
-  toStruct(section) {
+  toStruct(section, name) {
     let that = this;
     let out = {type: 'struct'};
-    let props = Object.keys(section['properties']);
+    if (name) {
+      out.name = name;
+    }
+    let props = Object.keys(section['properties']) || [];
 
     let required = section.required || [];
     out.fields = props.map(function (f) {
@@ -167,7 +168,9 @@ class Converter {
       let propType = prop.type;
       switch (propType) {
         case 'object':
-          console.log("RECURIVE OBJECTS AREN'T DONE");
+          //console.log("RECURIVE OBJECTS ARE WIP");
+          //console.log(prop);
+          return that.fromObject(prop, name=f);
       }
       return that.fromSimple(f, prop, section.required.includes(prop.name))
     });
@@ -177,13 +180,14 @@ class Converter {
   toStructField(section) {
 
   }
-  toMap(keytype, valuetype) {
+  toMap(keytype, valuetype, name) {
     /* TODO: this isn't fully finished.*/
     return {
       "keyType": keytype,
       "type": "map",
       "valueType": valuetype,
-      "valueContainsNull": true
+      "valueContainsNull": true,
+      "name": name
     }
   }
   convert (jsonschema) {
@@ -194,6 +198,20 @@ class Converter {
 exports.Converter = Converter;
 let J = new Converter();
 let x = require('./examples.json');
+console.log("COMMON");
 console.log(JSON.stringify(J.convert(x.common).toJSON(),null,2))
-console.log(JSON.stringify(J.convert(x.aMap).toJSON(),null,2))
+console.log("SHIELD-STUDY-DATA");
 
+console.log(JSON.stringify(J.convert(x["shield-study-data"]).toJSON(),null,2))
+console.log("SHIELD-STUDY-ADDON-DATA");
+
+console.log(JSON.stringify(J.convert(x["shield-study-addon-data"]).toJSON(),null,2))
+console.log("SHIELD-STUDY-ERROR-DATA");
+
+console.log(JSON.stringify(J.convert(x["shield-study-error-data"]).toJSON(),null,2))
+console.log("SIMPLE");
+
+console.log(JSON.stringify(J.convert(x.simple).toJSON(),null,2))
+console.log("aMAP");
+
+console.log(JSON.stringify(J.convert(x.aMap).toJSON(),null,2))

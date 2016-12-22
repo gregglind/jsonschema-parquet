@@ -84,13 +84,14 @@
         "type": "object",
         "title": "Details schema.",
         "description": "An explanation about the purpose of this instance.",
-        "properties": {}
+        "properties": {},
+        "additionalProperties": {
+          "type": "string"
+        }
       }
     },
     "required": [
-      "study_state",
-      "study_state_fullname",
-      "details"
+      "study_state"
     ]
   },
   "shield-study-addon-data": {
@@ -99,9 +100,12 @@
     "title": "Shield-Study-Addon 'data' field.",
     "description": "Shield-Study-addon Addon-specific data.  All values will be sent to parquet as strings.  Re:dash handles String:String natively.  Complex values will be stringified.",
     "properties": {
+    },
+    "additionalProperties": {
+      "type": "string"
     }
   },
-  "shield-study-error": {
+  "shield-study-error-data": {
     "$schema": "http://json-schema.org/draft-04/schema#",
     "type": "object",
     "title": "Shield-Study-Error 'data' field",
