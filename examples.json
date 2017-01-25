@@ -80,7 +80,7 @@
         "title": "Study_state_fullname schema.",
         "description": "Second part of name of state, if any.  Study-specific for study-defined endings."
       },
-      "context": {
+      "details": {
         "type": "object",
         "title": "Details schema.",
         "description": "An explanation about the purpose of this instance.",
@@ -117,11 +117,14 @@
         "title": "Message schema.",
         "description": "String of an error message."
       },
-      "context": {
+      "details": {
         "type": "object",
-        "title": "Context schema.",
+        "title": "Details schema.",
         "description": "Additional Groupable Fields.",
-        "properties": {}
+        "properties": {},
+        "additionalProperties":  {
+          "type": "string"
+        }
       },
       "error": {
         "type": "object",

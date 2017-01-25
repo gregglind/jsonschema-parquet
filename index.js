@@ -1,3 +1,12 @@
+#!/usr/bin/env node
+const VERSION = require('./package.json').version;
+const path = require('path');
+const deref = require('json-schema-deref');
+/*
+18:57 <@trink> https://github.com/mozilla-services/lua_sandbox_extensions/blob/master/parquet/io_modules/lpeg/parquet.lua#L139
+18:59 <@trink> the do have docs on the nested type schemas https://github.com/apache/parquet-format/blob/master/LogicalTypes.md#nested-types
+*/
+
 // needs node6 because es6
 
 /* the ideas
@@ -9,16 +18,7 @@
 Ps, people who are great at parsers and stuff could do this quickly.
 I am not that people.
 
-15:58 < gregglind> trink: tell me more about jsonschema to parquet conversion.  I am going to do it in JS fro jsonschema to parquet.  Is that a tool that's worth turning into a Tool
-16:00 < gregglind> I also don't know what the final format should be :)
-16:05 <@trink> JS probably won't be ideal for the automated conversion of the schema repo
-16:08 < gregglind> okay, gimme another options :)
-16:08 <@trink> the parquet schema is what parquet-mr defines the formal grammar can be found here
-               https://github.com/mozilla-services/lua_sandbox_extensions/blob/master/parquet/io_modules/lpeg/parquet.lua#L128
-16:08 -!- mpressman [textual@moz-iubvlc.6gmu.psfh.0282.2601.IP] has quit [RecvQ exceeded]
-16:09 <@trink> or I can get you a link to the parquet-mr java parsing code
-16:09 < gregglind> As far at output format, spark gives js, string, other things for what it can turn 'schema' into.
-
+- https://github.com/mozilla-services/lua_sandbox_extensions/blob/master/parquet/io_modules/lpeg/parquet.lua#L128
 
 
 from spark
@@ -29,8 +29,6 @@ from spark
 >>> sch = spark.read.json(sc.parallelize([{'a':1, 'b':{'c':1} }])).schema
 >>> sch
 StructType(List(StructField(a,LongType,true),StructField(b,StructType(List(StructField(c,LongType,true))),true)))
-
-
 
     message testpilot {
         required binary id;
@@ -80,138 +78,252 @@ from pyspark.sql.types import *
 {'fields': [], 'type': 'struct'}
 
 
+https://irccloud.mozilla.com/pastebin/CB5mzQDw/
+
+gregglind: https://github.com/apache/parquet-format/blob/master/LogicalTypes.md#maps for how a map schema should be defined
+
+21:36 <@trink> an optional map appears to look like this
+21:36 <@trink> https://irccloud.mozilla.com/pastebin/CB5mzQDw/
+
+               https://github.com/fbertsch/schema_evolution_exploration/blob/master/Schema_Evolution_Exploration_use_col_names.ipynb
+
+
+      optional group user_prefs (MAP) {
+        repeated group map (MAP_KEY_VALUE) {
+          required binary key (UTF8);
+          required binary value (UTF8);
+        }
+      }
+
 */
 
-
-class Result {
-  constructor(result) {
-    this.json = result;
+class Parquet {
+  constructor() {
+    this.typemap = {
+      "integer": "int64",
+      "boolean": "boolean"
+    };
   }
-  toJSON () {
-    return this.json;
+  convert (schema, options) {
+    this.conversion = { type: 'message',
+      name: schema.title || options.name,
+      parts: this._convert(schema)
+    };
+    return this.conversion;
   }
-  toString () {
-    throw new Error('to String is not yet complete');
-  }
-}
-
-class Converter {
-  _convert (section) {
-    //console.log(section);
-    switch (section.type) {
-      case "object":
-        return this.fromObject(section)
-        break;
-      case "string":
-        return this.fromString(section, nullable);
-        break
-      case "integer":
-        return this.fromInteger(section, nullable);
-        break;
-      default:
-        throw new Error("unimplemented type, todo");
-        break
-    }
-  }
-  fromObject (section, name) {
-    // struct or map maybe?  try struct first
-    let props = Object.keys(section['properties']);
-    let additionalProperties = section.additionalProperties || {};
-    // https://spacetelescope.github.io/understanding-json-schema/reference/object.html
-
-    // break early and do simple maps
-    switch (additionalProperties.type) {
-      case 'string':
-      case 'integer':
-        return this.toMap("string", additionalProperties.type, name);
-
-      case null:
-      case undefined:
-        break;
-
-      default:
-        throw new Error('map, but on an unknown type: ' + additionalProperties.type)
-        break;
-    }
-
-    return this.toStruct(section, name);
-  }
-
-  fromSimple (name, prop, nullable) {
-    return {
-      'metadata': {},
-      'type': prop.type,
-      'name': name,
-      'nullable': nullable
-    }
-  }
-
-  fromString (section) {
-    return
-  }
-
-  fromInteger (section) {
-    return
-  }
-
-  toStruct(section, name) {
-    let that = this;
-    let out = {type: 'struct'};
-    if (name) {
-      out.name = name;
-    }
-    let props = Object.keys(section['properties']) || [];
-
-    let required = section.required || [];
-    out.fields = props.map(function (f) {
-      let prop = section.properties[f];
-      let propType = prop.type;
-      switch (propType) {
-        case 'object':
-          //console.log("RECURIVE OBJECTS ARE WIP");
-          //console.log(prop);
-          return that.fromObject(prop, name=f);
+  _convert (schema) {
+    let partsArray = [];
+    var that = this;
+    Object.keys(schema.properties || {}).forEach(function convertProp(k) {
+      let prop = schema.properties[k];
+      if (prop.type === "object") {
+        partsArray.push(that.convertGroup(k, schema));
+      } else {
+        partsArray.push(that.convertSingle(k, schema));
       }
-      return that.fromSimple(f, prop, section.required.includes(prop.name))
     });
-    return out;
-
+    return partsArray;
   }
-  toStructField(section) {
 
-  }
-  toMap(keytype, valuetype, name) {
-    /* TODO: this isn't fully finished.*/
+  convertSingle(key, schema) {
+    let prop = schema.properties[key];
+    let type = this.typemap[prop.type] || "binary";
     return {
-      "keyType": keytype,
-      "type": "map",
-      "valueType": valuetype,
-      "valueContainsNull": true,
-      "name": name
-    }
+      type: type,
+      required: (schema.required || []).includes(key),
+      name: key
+    };
   }
-  convert (jsonschema) {
-    return new Result(this._convert(jsonschema));
+  convertGroup (key, schema) {
+    let prop = schema.properties[key];
+    let noProps = Object.keys(prop.properties || {}).length === 0;
+    if (noProps && (prop.additionalProperties || {}).type) {
+      return this._convertRepeatedGroup(key, schema);
+    }
+
+    return this._convertSimpleGroup(key, schema);
+  }
+
+  _convertSimpleGroup (key, schema) {
+    let type = 'group'; // or group, etc.
+    return {
+      type: type,
+      required: (schema.required || []).includes(key),
+      name: key,
+      parts: this._convert(schema.properties[key])
+    };
+  }
+  _convertRepeatedGroup (key, schema) {
+    /*
+      required group attributes (MAP) {
+          repeated group key_value {
+              required binary key (UTF8) ;
+              required binary value (UTF8) ;
+          }
+      }
+    */
+    let prop = schema.properties[key];
+    let type = 'group'; // or group, etc.
+    let noProps = Object.keys(prop.properties||{}).length === 0;
+    if (!noProps) throw new Error("claims repeated, but it's not");
+
+    return {
+      repeated: true,
+      type: type,
+      required: (schema.required || []).includes(key),
+      scheme: '(MAP_KEY_VALUE)',
+      name: key,
+      parts: [
+        {
+          required: true,
+          name: 'key',
+          type: 'binary'
+        },
+        {
+          required: true,
+          name: 'value',
+          type: this.typemap[prop.additionalProperties.type] || "binary"
+        },
+      ]
+    };
+  }
+  toString (digest) {
+    if (digest===undefined) {
+      digest = this.conversion;
+    }
+    function indent(spaces, times) {
+      let spacer = Array(spaces).fill(" ").join('');
+      return Array(times).fill(spacer).join('');
+    }
+
+    let out = [];
+    let depth = 0;
+    out.push([0, 'message', digest.name, '{']); // envelope
+    out = out.concat(this._walk(digest, depth+1));
+    out.push([0,'}']);  // envelope end
+    let lines = out.map(function (lineArray) {
+      let line =  indent(4,lineArray[0]) + lineArray.slice(1).join(" ");
+      line = line.replace(/ +;/,';'); // no space before semi-colon;
+      return line;
+    });
+    return lines.join('\n');
+  }
+
+  _walk (digest, depth=0) {
+    //console.log(depth, digest.name);
+    let that = this;
+    let out = [];
+    if (digest.parts) {
+      digest.parts.forEach((p) => {
+        if (p.type === 'group') {
+          out = out.concat(that._writeGroup(p, depth));
+        }
+        else {
+          out = out.concat(that._writeSingle(p, depth));
+        }
+      });
+    }
+    return out;
+  }
+
+  _writeSingle(part, depth) {
+    let isRequired = part.required ?  'required' : 'optional';
+    let out = [depth, isRequired, part.type, part.name];
+    if (part.type === 'binary') out.push('(UTF8)');
+    out.push(';');
+    return [out];
+  }
+
+  _writeGroup(part, depth) {
+    let isRequired = part.required ?  'required' : 'optional';
+    let front = [depth, isRequired, 'group', part.name, '{'];
+    if (part.scheme) {
+      return this._writeMap(part, depth);
+    }
+    let middle = this._walk(part, depth+1);
+
+    let end = [depth, '}'];
+    return [].concat([front]).concat(middle).concat([end]);
+  }
+  _writeMap(part, depth) {
+    /*
+      required group attributes (MAP) {
+          repeated group key_value {
+              required binary key (UTF8) ;
+              required binary value (UTF8) ;
+          }
+      }
+    */
+    let isRequired = part.required ?  'required' : 'optional';
+    return [
+      [depth, isRequired, 'group', part.name, '(MAP)', '{'],
+      [depth+1, 'repeated', 'group', 'key_value', '{'],
+      [depth+2, 'required', 'binary', 'key', '(UTF8)', ';'],
+      [depth+2, 'required', 'binary', 'value', '(UTF8)', ';'],
+      [depth+1,'}'],
+      [depth, '}']
+    ];
   }
 }
 
-exports.Converter = Converter;
-let J = new Converter();
-let x = require('./examples.json');
-console.log("COMMON");
-console.log(JSON.stringify(J.convert(x.common).toJSON(),null,2))
-console.log("SHIELD-STUDY-DATA");
+function promiseDeref (schema) {
+  return new Promise(function (resolve,reject) {
+    deref(schema, function (err, fullSchema) {
+      if (err) reject(err);
+      resolve(fullSchema);
+    });
+  });
+}
 
-console.log(JSON.stringify(J.convert(x["shield-study-data"]).toJSON(),null,2))
-console.log("SHIELD-STUDY-ADDON-DATA");
+function runTests () {
+  console.ok ('TESTS TODO');
+}
 
-console.log(JSON.stringify(J.convert(x["shield-study-addon-data"]).toJSON(),null,2))
-console.log("SHIELD-STUDY-ERROR-DATA");
+var program = require('commander');
 
-console.log(JSON.stringify(J.convert(x["shield-study-error-data"]).toJSON(),null,2))
-console.log("SIMPLE");
+program
+  .version(VERSION)
+  .description('convert json schema to parquet-mr');
 
-console.log(JSON.stringify(J.convert(x.simple).toJSON(),null,2))
-console.log("aMAP");
+program
+  .command('test')
+  .action(function () {runTests();});
 
-console.log(JSON.stringify(J.convert(x.aMap).toJSON(),null,2))
+
+program
+  .command('parquet <file> [otherFiles...]')
+  .description('from jsonschema to parquet format')
+  .option('--deref', 'Dereference all jsonschema $ref elements.')
+  .action(function (file, otherFiles, options) {
+    let toConvert = [file].concat(otherFiles);
+    let P = new Parquet();
+    let pr = Promise.resolve();
+
+    function promiseConvert (f) {
+      return new Promise(function (resolve, reject) {
+        let schema = require(f);
+        pr = Promise.resolve(schema);
+        if (options.deref) {
+          pr = pr.then(promiseDeref).catch(
+            (err) => {console.error(`Dereference problem in: ${f}`, err);
+            });
+        }
+        pr.then((schema) => {
+          let conversion = P.convert(schema, {name: path.basename(f)});
+          console.log(P.toString(conversion));
+        }).then(resolve).catch(
+            (err) => {console.error(`Conversion problem in: ${f}`, err);
+            });
+      });
+    }
+    toConvert.forEach((f) => {
+      pr = pr.then(() => promiseConvert(f));
+    });
+    pr.catch((err) => {console.error(err);});
+  });
+
+program.parse(process.argv);
+
+
+exports.Parquet = Parquet;
+

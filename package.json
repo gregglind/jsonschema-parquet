@@ -1,11 +1,23 @@
 {
   "name": "jsonschema-parquet",
   "version": "0.0.1",
-  "description": "",
+  "author": "Gregg Lind <glind@mozilla.com>",
+  "devDependencies": {
+    "commander": "^2.9.0",
+    "depcheck": "^0.6.7",
+    "eslint": "^3.14.0",
+    "fixpack": "^2.3.1",
+    "json-schema-deref": "^0.3.5",
+    "npm-run-all": "^4.0.1"
+  },
+  "license": "ISC",
   "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
-  },
-  "author": "Gregg Lind <glind@mozilla.com>",
-  "license": "ISC"
+    "lint": "npm-run-all lint:*",
+    "lint:depcheck": "depcheck --ignores eslint",
+    "lint:eslint": "eslint .",
+    "lint:fixpack": "fixpack",
+    "prepublish": "npm shrinkwrap",
+    "test": "npm run lint && node ./validateSchemas.js test && node ./split-schemas.js && echo OK"
+  }
 }
