@@ -1,23 +1,41 @@
 {
   "name": "jsonschema-parquet",
-  "version": "0.0.1",
+  "description": "Convert between JSONSchema and Parquet-MR data formats.",
+  "version": "0.2.0",
   "author": "Gregg Lind <glind@mozilla.com>",
+  "bin": {
+    "jsonschema-parquet": "index.js"
+  },
+  "bugs": {
+    "url": "https://github.com/gregglind/jsonschema-parquet/issues"
+  },
   "devDependencies": {
     "commander": "^2.9.0",
     "depcheck": "^0.6.7",
     "eslint": "^3.14.0",
     "fixpack": "^2.3.1",
     "json-schema-deref": "^0.3.5",
-    "npm-run-all": "^4.0.1"
+    "npm-run-all": "^4.0.1",
+    "pegjs": "^0.10.0"
   },
+  "homepage": "https://github.com/gregglind/jsonschema-parquet#readme",
+  "keywords": [
+    "jsonschema",
+    "parquet",
+    "parquet-mr"
+  ],
   "license": "ISC",
   "main": "index.js",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/gregglind/jsonschema-parquet.git"
+  },
   "scripts": {
     "lint": "npm-run-all lint:*",
     "lint:depcheck": "depcheck --ignores eslint",
     "lint:eslint": "eslint .",
     "lint:fixpack": "fixpack",
     "prepublish": "npm shrinkwrap",
-    "test": "npm run lint && node ./validateSchemas.js test && node ./split-schemas.js && echo OK"
+    "test": "npm run lint"
   }
 }

@@ -322,8 +322,9 @@ program
     pr.catch((err) => {console.error(err);});
   });
 
-program.parse(process.argv);
-
+if (require.main === module) {
+    program.parse(process.argv);
+}
 
 exports.Parquet = Parquet;
 
