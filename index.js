@@ -101,6 +101,8 @@ class Parquet {
   constructor() {
     this.typemap = {
       "integer": "int64",
+      "number": "float",
+
       "boolean": "boolean"
     };
   }
